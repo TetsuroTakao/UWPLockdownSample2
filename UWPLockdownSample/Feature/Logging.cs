@@ -13,24 +13,46 @@ namespace UWPLockdownSample.Feature
 {
     public class Logging
     {
+        StorageFolder localFolder = ApplicationData.Current.LocalFolder;
+
+        public bool LogExists
+        {
+            get
+            {
+                bool exists = false;
+                new Task(async () => 
+                {
+                    try
+                    {
+                        LogFile = await localFolder.GetFileAsync("log.log");
+                        exists = true;
+                    }
+                    catch
+                    {
+                        exists = false;
+                    }
+                }).RunSynchronously();
+                return exists;
+            }
+        }
         public StorageFile LogFile { get; set; }
         public Logging()
         {
-            ApplicationDataContainer localSettings = ApplicationData.Current.LocalSettings;
-            StorageFolder localFolder = ApplicationData.Current.LocalFolder;
-
-            DateTimeFormatter formatter = new DateTimeFormatter("longtime");
-
-            new Task(async () => { LogFile = await localFolder.CreateFileAsync("dataFile.txt", CreationCollisionOption.ReplaceExisting); }).RunSynchronously();
-        }
-        public void AppendWrite(List<LogModel> logs,FileInfo logfile)
-        {
-            List<LogModel> old = new List<LogModel>();
-            string jsonstring = string.Empty;
-            new Task(async () => 
+            if (!LogExists)
             {
-                jsonstring = await FileIO.ReadTextAsync(LogFile);
-            }).RunSynchronously();
+                new Task(async () => { LogFile = await localFolder.CreateFileAsync("log.log", CreationCollisionOption.ReplaceExisting); }).RunSynchronously();
+            }
+        }
+        public void AppendWrite(List<LogModel> logs) 
+        {
+            string jsonstring = string.Empty;
+            if (LogExists)
+            {
+                new Task(async () =>
+                {
+                    jsonstring = await FileIO.ReadTextAsync(LogFile);
+                }).RunSynchronously();
+            }
             if (!string.IsNullOrEmpty(jsonstring))
             {
                 logs.AddRange(JsonConvert.DeserializeObject<List<LogModel>>(jsonstring));
@@ -39,6 +61,23 @@ namespace UWPLockdownSample.Feature
             {
                 await FileIO.WriteTextAsync(LogFile, JsonConvert.SerializeObject(logs));
             }).RunSynchronously();
+        }
+        public List<LogModel> ReadLogs()
+        {
+            List<LogModel> logs = new List<LogModel>();
+            string jsonstring = string.Empty;
+            if (LogExists)
+            {
+                new Task(async () =>
+                {
+                    jsonstring = await FileIO.ReadTextAsync(LogFile);
+                }).RunSynchronously();
+            }
+            if (!string.IsNullOrEmpty(jsonstring))
+            {
+                logs=JsonConvert.DeserializeObject<List<LogModel>>(jsonstring);
+            }
+            return logs;
         }
     }
 }
